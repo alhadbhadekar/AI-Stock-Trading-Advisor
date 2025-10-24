@@ -1,0 +1,24 @@
+# Core Python utilities
+python-dotenv
+regex
+
+# Streamlit UI framework
+streamlit
+
+# Finance data retrieval
+yfinance
+
+# Multi-agent orchestration
+crewai
+litellm
+
+# LLM dependencies (Groq + OpenAI-compatible)
+groq
+
+# Data handling (used indirectly by yfinance)
+pandas
+numpy
+requests
+
+# Optional dev utilities
+watchdog
