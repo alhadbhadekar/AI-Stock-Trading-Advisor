@@ -44,19 +44,32 @@ def _normalize_results(result):
 
 
 def run(stock_symbol: str):
-    """Run Analyst + Trader pipeline.
-    Analyst part: Yahoo Finance tool
-    Trader part: CrewAI (decision reasoning)
+    """
+    Run Analyst first. If ticker is invalid, DO NOT run Trader.
+    If data is valid, run Trader.
     """
     try:
-        # Step 1: Always get live data from Yahoo Finance
+        # Step 1: Always fetch analyst summary first
         analyst_summary = get_stock_price_func(stock_symbol)
 
-        # Step 2: Trader reasoning via CrewAI
-        crew_result = stock_crew.kickoff(inputs={"stock": stock_symbol, "context": analyst_summary})
+        # ✅ If analyst summary indicates symbol invalid → RETURN ONLY ANALYSIS
+        if analyst_summary.startswith("Could not retrieve data for"):
+            return {
+                "analysis": analyst_summary.strip(),
+                "decision": (
+                    f"⚠️ No trading recommendation was generated because '{stock_symbol}' is not a valid stock symbol.\n\n"
+                    f"🔎 You can search for the correct ticker here:\n"
+                    f"https://finance.yahoo.com/lookup"
+                )
+            }
+
+        # ✅ If valid stock → run Trader
+        crew_result = stock_crew.kickoff(inputs={
+            "stock": stock_symbol,
+            "context": analyst_summary
+        })
         normalized = _normalize_results(crew_result)
 
-        # Always use real Yahoo data as analysis
         normalized["analysis"] = analyst_summary.strip()
         return normalized
 
@@ -65,14 +78,11 @@ def run(stock_symbol: str):
 
         # ✅ Detect Groq rate-limit errors explicitly
         if "RateLimitError" in error_text or "rate_limit_exceeded" in error_text:
-            friendly_message = (
-                "⚠️ Not enough model tokens available right now. "
-                "Please wait a few minutes before retrying. "
-                "This limit resets automatically each day or you can upgrade your Groq plan."
-            )
             return {
                 "analysis": analyst_summary.strip(),
-                "decision": friendly_message,
+                "decision": (
+                    "⚠️ Groq rate limit exceeded — wait 1–3 minutes and try again."
+                ),
             }
 
         # Generic fallback
@@ -80,3 +90,4 @@ def run(stock_symbol: str):
             "analysis": f"Error during crew run: {error_text}",
             "decision": "",
         }
+
